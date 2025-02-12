@@ -30,7 +30,8 @@ if "conversation_id" not in st.session_state:
     st.session_state.conversation_id = None
 if "reply_options_method" not in st.session_state:
     st.session_state.reply_options_method= None
-
+if "persona_id" not in st.session_state:
+    st.session_state.persona_id = None
 
 
 def fetch_users():
