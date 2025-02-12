@@ -334,7 +334,6 @@ if selected_persona and selected_persona!="Your Persona" and selected_persona!="
     st.markdown(f"**Gender:** {selected_persona['gender']}")
     st.markdown(f"**Description:** {selected_persona['description']}")
 
-
 if selected_persona:
     if selected_persona == "Your Persona":
         st.session_state.reply_options_method = 1
@@ -370,10 +369,16 @@ if st.button("生成回复选项"):
             st.markdown(st.session_state.conversation_id)
             st.markdown(st.session_state.persona_id)
             st.markdown(st.session_state.selected_recipient["relationship_id"])
-            response = requests.post(
-                f"{BASE_URL}/reply_suggestions/",
-                json={"option": st.session_state.reply_options_method, "conversation_id": st.session_state.conversation_id, "persona_id": st.session_state.persona_id, "relationship_id": st.session_state.selected_recipient["relationship_id"]},
-            )
+            if st.session_state.reply_options_method == 2 or st.session_state.reply_options_method == 1:
+                response = requests.post(
+                    f"{BASE_URL}/reply_suggestions/",
+                    json={"option": st.session_state.reply_options_method, "conversation_id": st.session_state.conversation_id, "relationship_id": st.session_state.selected_recipient["relationship_id"]},
+                )
+            else:
+                response = requests.post(
+                    f"{BASE_URL}/reply_suggestions/",
+                    json={"option": st.session_state.reply_options_method, "conversation_id": st.session_state.conversation_id, "persona_id": st.session_state.persona_id, "relationship_id": st.session_state.selected_recipient["relationship_id"]},
+                )
 
             # Assuming response contains reply_1, reply_2, reply_3, reply_4
             if response.status_code == 200:
