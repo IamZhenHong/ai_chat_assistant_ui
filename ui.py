@@ -364,11 +364,12 @@ if st.button("生成回复选项"):
                     conversation_id = response.json()["conversation_id"]
                     st.session_state.conversation_id = conversation_id
                 
-                st.markdown(st.session_state.reply_options_method)
-                st.markdown(st.session_state.conversation_id)
-                st.markdown(st.session_state.persona_id)
-                st.markdown(st.session_state.selected_recipient["relationship_id"])
+                
             
+            st.markdown(st.session_state.reply_options_method)
+            st.markdown(st.session_state.conversation_id)
+            st.markdown(st.session_state.persona_id)
+            st.markdown(st.session_state.selected_recipient["relationship_id"])
             response = requests.post(
                 f"{BASE_URL}/reply_suggestions/",
                 json={"option": st.session_state.reply_options_method, "conversation_id": st.session_state.conversation_id, "persona_id": st.session_state.persona_id, "relationship_id": st.session_state.selected_recipient["relationship_id"]},
