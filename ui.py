@@ -32,7 +32,10 @@ if "reply_options_method" not in st.session_state:
     st.session_state.reply_options_method= None
 if "persona_id" not in st.session_state:
     st.session_state.persona_id = None
-
+if "selected_user_data" not in st.session_state:
+    st.session_state.selected_user_data = None
+if "form_data" not in st.session_state:
+    st.session_state.form_data = { }
 
 def fetch_users():
     try:
@@ -59,6 +62,9 @@ def fetch_personas():
         response = requests.get(f"{BASE_URL}/personas/")
         if response.status_code == 200:
             st.session_state.personas_list = response.json()
+            if not st.session_state.selected_user_data and st.session_state.users_list:
+                st.session_state.selected_user_data = st.session_state.users_list[0]
+                st.session_state.user_id = st.session_state.selected_user_data["id"]
         else:
             st.error(f"无法获取目标列表: {response.status_code} - {response.text}")
     except requests.exceptions.RequestException as e:
@@ -73,6 +79,7 @@ if not st.session_state.users_list:
 user_options = ["创建新用户"] + [f"{user['id']}: {user['name']}" for user in st.session_state.users_list]
 selected_user = st.selectbox("选择用户", user_options)
 
+
 is_new_user = selected_user == "创建新用户"
 
 if selected_user != "创建新用户":
@@ -80,6 +87,7 @@ if selected_user != "创建新用户":
     if st.session_state.user_id != user_id:
         st.session_state.user_id = user_id
         st.session_state.recipients_list = []  # Reset recipients when user changes
+        st.session_stat.selected_user_data = next((user for user in st.session_state.users_list if user["id"] == user_id), None)
         fetch_recipients()
 
 if is_new_user:
@@ -91,23 +99,25 @@ else:
     user_id = selected_user.split(":")[0]
     st.session_state.user_id = user_id
     st.markdown("编辑用户")
-    selected_user = next((user for user in st.session_state.users_list if user["id"] == user_id), None)
-
-    if selected_user == None:
+    if st.session_state.selected_user_data:
+        st.session_state.form_data = {
+            "name": st.session_state.selected_user_data.get("name", ""),
+            "gender": st.session_state.selected_user_data.get("gender", ""),
+            "language": st.session_state.selected_user_data.get("language", ""),
+            "age": st.session_state.selected_user_data.get("age", ""),
+            "about_me": st.session_state.selected_user_data.get("about_me", "")
+        }
+    else:
         st.error("用户不存在！")
 
-    form_data = {
-        "name": selected_user["name"],
-    }
 
 
-# Streamlit UI components
-name = st.text_input("姓名", value=form_data.get("name", ""))
-gender = st.text_input("性别", value=form_data.get("gender", ""))
-language = st.text_input("语言", value=form_data.get("language", ""))
-age = st.text_input("年龄", value=form_data.get("age", ""))
-about_me = st.text_area("关于我", value=form_data.get("about_me", ""))
-
+# Form fields dynamically updated from session state
+name = st.text_input("姓名", value=st.session_state.form_data["name"])
+gender = st.text_input("性别", value=st.session_state.form_data["gender"])
+language = st.text_input("语言", value=st.session_state.form_data["language"])
+age = st.text_input("年龄", value=st.session_state.form_data["age"])
+about_me = st.text_area("关于我", value=st.session_state.form_data["about_me"])
 
 if is_new_user:
     create_user_button = st.button("创建用户")
@@ -132,11 +142,13 @@ else:
     if update_user_button:
         if name:
             try:
-                user_id = selected_user["id"]
-                response = requests.put(f"{BASE_URL}/users/{user_id}/", json={"name": name})
+                user_id = selected_user.split(":")[0]  # Extract the user ID from "id: name"
+
+                response = requests.put(f"{BASE_URL}/users/{user_id}/", json={"name": name,"gender": gender, "language": language, "age": age, "about_me": about_me})
                 if response.status_code == 200:
                     st.success("用户更新成功！")
                     fetch_users()
+                    st.rerun()
                 else:
                     st.error(f"错误: {response.status_code} - {response.text}")
             except requests.exceptions.RequestException as e:
