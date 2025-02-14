@@ -6,7 +6,7 @@ import uuid
 # Define the base URL for the API
 # BASE_URL = "http://192.168.69.28:8000"  # Use your local IP
 
-BASE_URL = "https://b886-60-50-200-107.ngrok-free.app"
+BASE_URL = "https://91d4-128-106-187-4.ngrok-free.app"
 st.title("恋爱分析")
 
 # Initialize session state
