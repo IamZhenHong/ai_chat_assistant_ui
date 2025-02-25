@@ -6,7 +6,8 @@ import uuid
 # Define the base URL for the API
 # BASE_URL = "http://192.168.69.28:8000"  # Use your local IP
 
-BASE_URL = "https://91d4-128-106-187-4.ngrok-free.app"
+BASE_URL = "https://ai-chat-assistant-poc-3.onrender.com"
+# BASE_URL = "http://localhost:8000"
 st.title("恋爱分析")
 
 # Initialize session state
@@ -52,7 +53,7 @@ def fetch_recipients():
         user_id = str(st.session_state.user_id)
         uuid.UUID(user_id)
         response = requests.get(f"{BASE_URL}/recipients/{user_id}/")
-        st.markdown(response.json())
+        # st.markdown(response.json())
         st.session_state.recipients_list = response.json()
     except requests.exceptions.RequestException as e:
         st.error(f"请求失败: {e}")
@@ -87,14 +88,19 @@ if selected_user != "创建新用户":
     if st.session_state.user_id != user_id:
         st.session_state.user_id = user_id
         st.session_state.recipients_list = []  # Reset recipients when user changes
-        st.session_stat.selected_user_data = next((user for user in st.session_state.users_list if user["id"] == user_id), None)
+        st.session_state.selected_user_data = next((user for user in st.session_state.users_list if user["id"] == user_id), None)
         fetch_recipients()
 
 if is_new_user:
     st.markdown("#### 创建用户")
-    form_data = {
-        "name": "",
-    }
+    if "form_data" not in st.session_state:
+        st.session_state.form_data = {
+            "name": "",
+            "gender": "",
+            "language": "",
+            "age": "",
+            "about_me": ""
+        }
 else:
     user_id = selected_user.split(":")[0]
     st.session_state.user_id = user_id
@@ -108,6 +114,13 @@ else:
             "about_me": st.session_state.selected_user_data.get("about_me", "")
         }
     else:
+        st.session_state.form_data = {
+            "name": "",
+            "gender": "",
+            "language": "",
+            "age": "",
+            "about_me": ""
+        }
         st.error("用户不存在！")
 
 
@@ -254,9 +267,20 @@ if st.session_state.user_id:
 
 st.markdown(st.session_state.selected_recipient)
 
-st.markdown("### 输入当前对话")
+st.markdown("# 输入当前对话")
+
+import streamlit as st
+import requests
+
+
+# Input for conversation
 current_convo = st.text_area("当前对话", placeholder="输入当前的对话内容...")
 
+
+
+st.markdown("## 情感分析")
+
+# Button to Generate Analysis
 if st.button("生成分析"): 
     if current_convo and st.session_state.selected_recipient:
         st.info("生成中...")
@@ -271,9 +295,11 @@ if st.button("生成分析"):
             response = requests.post(
                 f"{BASE_URL}/conversation_snippets/",
                 json=[{
+                    "user_id": st.session_state.user_id,
+                    "recipient_id": st.session_state.selected_recipient["id"],
                     "relationship_id": st.session_state.selected_recipient["relationship_id"],
                     "sequence_id": 1,
-                    "content": current_convo,
+                    "content": current_convo
                 }],
             )
 
@@ -282,35 +308,38 @@ if st.button("生成分析"):
                 conversation_id = response.json()["conversation_id"]
                 st.session_state.conversation_id = conversation_id
 
-            response = requests.post(
-                f"{BASE_URL}/conversation_analysis/",
-                json={"conversation_id": st.session_state.conversation_id, "relationship_id": st.session_state.selected_recipient["relationship_id"]},
-            )
+                response = requests.post(
+                    f"{BASE_URL}/conversation_analysis/",
+                    json={
+                        "conversation_id": st.session_state.conversation_id,
+                        "relationship_id": st.session_state.selected_recipient["relationship_id"]# Pass memory choice to analysis endpoint
+                    },
+                )
 
+                # Check if the request was successful
+                if response.status_code == 200:
+                    st.session_state.analysis_result = response.json()
+                    st.success("✅ 对话分析生成成功！")
 
-            # Check if the request was successful
-            if response.status_code == 200:
-                st.session_state.analysis_result = response.json()
-                
-                st.success("✅ 对话分析生成成功！")
+                    analysis = st.session_state.analysis_result  # Store JSON response
 
-                analysis = st.session_state.analysis_result  # Store JSON response
+                    # 📌 Display Analysis Results with Icons & Formatting
+                    st.subheader("📊 对话分析结果")
 
-                # 📌 Display Analysis Results with Icons & Formatting
-                st.subheader("📊 对话分析结果")
+                    st.markdown(f"""
+                    - **🗣️ 用户沟通风格:** {analysis.get('user_communication_style', '未提供')}
+                    - **😊 用户性格特征:** {analysis.get('user_personality', '未提供')}
+                    - **💬 对方沟通风格:** {analysis.get('recipient_communication_style', '未提供')}
+                    - **🎭 对方性格:** {analysis.get('recipient_personality', '未提供')}
+                    - **🔄 关系阶段:** {analysis.get('relationship_stage', '未提供')}
+                    - **📉 关系趋势:** {analysis.get('relationship_trend', '未提供')}
+                    """, unsafe_allow_html=True)
 
-                st.markdown(f"""
-                - **🗣️ 用户沟通风格:** {analysis.get('user_communication_style', '未提供')}
-                - **😊 用户性格特征:** {analysis.get('user_personality', '未提供')}
-                - **💬 对方沟通风格:** {analysis.get('recipient_communication_style', '未提供')}
-                - **🎭 对方性格:** {analysis.get('recipient_personality', '未提供')}
-                - **🔄 关系阶段:** {analysis.get('relationship_stage', '未提供')}
-                - **📉 关系趋势:** {analysis.get('relationship_trend', '未提供')}
-                """, unsafe_allow_html=True)
-
-
+                else:
+                    st.error(f"错误: {response.status_code} - {response.text}")
             else:
                 st.error(f"错误: {response.status_code} - {response.text}")
+
         except requests.exceptions.RequestException as e:
             st.error(f"请求失败: {e}")
     else:
@@ -322,7 +351,7 @@ def format_persona(persona):
         return persona["name"] + " " + "(" + persona["gender"] + ")"  # Format for personas
     return str(persona)  # Just return the string for extra options
 
-st.markdown("### 选择性格")
+st.markdown("## 回复生成")
 
 # Define extra options
 extra_options = ["Your Persona", "Normal Persona"]
@@ -335,7 +364,7 @@ selected_persona = st.selectbox(
     key="selected_persona"
 )
 
-st.write(f"你选择了: {selected_persona}")
+# st.write(f"你选择了: {selected_persona}")
 
 
 
@@ -354,6 +383,7 @@ if selected_persona:
     else:
         st.session_state.reply_options_method = 3
         st.session_state.persona_id = selected_persona["id"]
+use_memory = st.checkbox("💾 使用记忆生成回复")
 
 if st.button("生成回复选项"):
     
@@ -364,9 +394,11 @@ if st.button("生成回复选项"):
                 response = requests.post(
                     f"{BASE_URL}/conversation_snippets/",
                     json=[{
+                        "user_id": st.session_state.user_id,
+                        "recipient_id": st.session_state.selected_recipient["id"],
                         "relationship_id": st.session_state.selected_recipient["relationship_id"],
                         "sequence_id": 1,
-                        "content": current_convo,
+                        "content": current_convo # Pass memory choice as a boolean
                     }],
                 )
             
@@ -377,19 +409,19 @@ if st.button("生成回复选项"):
                 
                 
             
-            st.markdown(st.session_state.reply_options_method)
-            st.markdown(st.session_state.conversation_id)
-            st.markdown(st.session_state.persona_id)
-            st.markdown(st.session_state.selected_recipient["relationship_id"])
+            # st.markdown(st.session_state.reply_options_method)
+            # st.markdown(st.session_state.conversation_id)
+            # st.markdown(st.session_state.persona_id)
+            # st.markdown(st.session_state.selected_recipient["relationship_id"])
             if st.session_state.reply_options_method == 2 or st.session_state.reply_options_method == 1:
                 response = requests.post(
                     f"{BASE_URL}/reply_suggestions/",
-                    json={"option": st.session_state.reply_options_method, "conversation_id": st.session_state.conversation_id, "relationship_id": st.session_state.selected_recipient["relationship_id"]},
+                    json={"option": st.session_state.reply_options_method, "conversation_id": st.session_state.conversation_id, "relationship_id": st.session_state.selected_recipient["relationship_id"],"use_memory": use_memory },
                 )
             else:
                 response = requests.post(
                     f"{BASE_URL}/reply_suggestions/",
-                    json={"option": st.session_state.reply_options_method, "conversation_id": st.session_state.conversation_id, "persona_id": st.session_state.persona_id, "relationship_id": st.session_state.selected_recipient["relationship_id"]},
+                    json={"option": st.session_state.reply_options_method, "conversation_id": st.session_state.conversation_id, "persona_id": st.session_state.persona_id, "relationship_id": st.session_state.selected_recipient["relationship_id"], "use_memory": use_memory},
                 )
 
             # Assuming response contains reply_1, reply_2, reply_3, reply_4
